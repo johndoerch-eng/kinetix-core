@@ -1,0 +1,19 @@
+# Ignore everything by default
+*
+.*
+
+# But allow these exact files to be tracked
+!.gitignore
+!README_ICD.md
+!README.md
+!Makefile
+!bench_kinetix.c
+!generate_dummy_cassette.py
+!kinetix_core.c
+!kinetix_core.h
+
+# Allow the data folder but only the dummy payload inside
+!data/
+data/*
+!data/dummy_payload.bin
+
