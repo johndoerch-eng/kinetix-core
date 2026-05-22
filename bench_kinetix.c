@@ -2,6 +2,10 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #ifdef _MSC_VER
 #include <intrin.h>
 #define ALIGN64 __declspec(align(64))
@@ -15,7 +19,8 @@
 #define ITERATIONS 1000000
 
 int main() {
-    printf("[SYS] Initialisation du Benchmark KinetiX Multi-Cassettes (Mondial)...\n");
+    printf("[SYS] Initializing KinetiX Multi-Cassette Global Benchmark...\n");
+
 
     // Allocation SRAM de 1 Mo pour stocker les cassettes mondiales chargées
     static ALIGN64 uint8_t sram_buffer[1024 * 1024]; 
@@ -32,31 +37,33 @@ int main() {
     unsigned long long start_cycles, end_cycles, total_cycles = 0;
     unsigned int ui;
 
-    printf("[SYS] Lancement de %d itérations de multiplexage...\n", ITERATIONS);
+    printf("[SYS] Running %d multiplexing iterations...\n", ITERATIONS);
 
-    // Boucle de mesure
-    for (int i = 0; i < ITERATIONS; ++i) {
+    volatile int dummy_sum = 0;
+
+    // Mesure globale (en dehors de la boucle)
 #ifdef _MSC_VER
-        start_cycles = __rdtscp(&ui); 
+    start_cycles = __rdtscp(&ui); 
 #else
-        start_cycles = __rdtscp(&ui); 
+    start_cycles = __rdtscp(&ui); 
 #endif
-        
-        // Interrogation de la station ID 0
-        Kinetix_Veto_Check(sram_buffer, 0, signal_state);
 
-        end_cycles = __rdtscp(&ui); 
-        total_cycles += (end_cycles - start_cycles);
+    for (int i = 0; i < ITERATIONS; ++i) {
+        dummy_sum += Kinetix_Veto_Check(sram_buffer, 0, signal_state);
     }
+
+    end_cycles = __rdtscp(&ui); 
+    total_cycles = (end_cycles - start_cycles);
 
     double avg_cycles = (double)total_cycles / ITERATIONS;
     double nanoseconds = (avg_cycles / 4.2);
 
     printf("======================================\n");
-    printf("[RESULTAT] Cycles CPU moyens par pas : %.2f cycles\n", avg_cycles);
-    printf("[RESULTAT] Latence physique estimée  : %.2f nanosecondes\n", nanoseconds);
+    printf("[RESULT] Average CPU cycles per step : %.2f cycles\n", avg_cycles);
+    printf("[RESULT] Estimated physical latency  : %.2f nanoseconds\n", nanoseconds);
     printf("======================================\n");
 
     return 0;
 }
+
 
