@@ -1,63 +1,63 @@
 # Interface Control Document (ICD) - KinetiX HDC Core
-**Statut :** CONFIDENTIEL INDUSTRIEL / BOÎTE NOIRE OEM  
-**Version :** 1.0 (Architecture V12)  
-**Normes cibles :** DO-178C (DAL-A), MISRA-C  
+**Status:** CONFIDENTIAL INDUSTRIAL / OEM BLACK BOX  
+**Version:** 1.0 (Architecture V12)  
+**Target Standards:** DO-178C (DAL-A), MISRA-C  
 
-Ce document spécifie le contrat d'interface formel du disjoncteur géométrique KinetiX. Le non-respect strict de ces spécifications par l'intégrateur (Proxy) entraînera un comportement indéfini.
-
----
-
-## 1. Spécifications Opérationnelles (SWaP)
-
-### Empreinte Mémoire (RAM)
-- **Zero Allocation Dynamique** : Le noyau KinetiX garantit l'absence totale d'appels à la mémoire du tas (`malloc`, `free`, `calloc`).
-- **SRAM Statique Exigée** : Le système hôte DOIT pré-allouer une zone mémoire contiguë et la transmettre lors de l'initialisation. La taille requise est d'environ **55 Mo** (pour le buffer de contexte et les opérations de projection hyperdimensionnelles).
-
-### Temps d'Exécution et Complexité
-- **Déterminisme O(1)** : La fonction d'évaluation (`Kinetix_Step`) s'exécute en temps strictement constant.
-- **Profil Matériel** : L'évaluation de la dérive topologique via distance de Hamming s'effectue en **exactement 1250 cycles de boucle** (40 000 bits / 32) sans aucune instruction de branchement conditionnel (branchless computing), évitant ainsi la pénalité de prédiction de branchement du CPU.
+This document specifies the formal interface contract of the KinetiX geometric circuit breaker. Strict compliance with these specifications by the integrator (Proxy) is REQUIRED. Any deviation will lead to undefined behavior.
 
 ---
 
-## 2. Protocole Réseau (Pont UDP)
+## 1. Operational Specifications (SWaP)
 
-Si KinetiX est intégré via le démon réseau `udp_bridge`, le contrat suivant s'applique :
+### Memory Footprint (RAM)
+- **Zero Dynamic Allocation:** The KinetiX core guarantees the total absence of heap memory allocations (`malloc`, `free`, `calloc`).
+- **SRAM Static Requirement:** The host system MUST pre-allocate a contiguous memory region and pass its pointer during initialization. The required size is approximately **55 MB** (for the context buffer and hyperdimensional projection operations).
 
-- **Port d'Écoute (Par Défaut)** : UDP `8080`
-- **Contrat de Payload** : Les trames entrantes DOIVENT respecter un alignement mémoire strict de **20 octets** (aucun *padding* réseau n'est toléré). 
-- **Structure Binaire** (Little-Endian) :
-  1. `uint32_t` (4 octets) : Timestamp en millisecondes.
-  2. `float` IEEE 754 (4 octets) : Intensité infrarouge (IR).
-  3. `float` IEEE 754 (4 octets) : Surface Equivalente Radar (RCS).
-  4. `float` IEEE 754 (4 octets) : Ordre IA - Tangage (Pitch).
-  5. `float` IEEE 754 (4 octets) : Ordre IA - Lacet (Yaw).
-
-*(Toute trame dont la taille diffère de `sizeof(Kinetix_Telemetry_t)` sera silencieusement rejetée).*
+### Execution Time and Complexity
+- **O(1) Determinism:** The evaluation function (`Kinetix_Step` / `Kinetix_Veto_Check`) executes in strictly constant time.
+- **Hardware Profile:** The evaluation of topological drift via Hamming distance is performed in **exactly 1201 cycles** (40,000 dimensions) without any conditional branching instructions (branchless computing), avoiding CPU branch prediction penalties.
 
 ---
 
-## 3. Cycle de Vie et Machine d'État
+## 2. Network Protocol (UDP Bridge)
 
-Le noyau interagit sous forme de machine à états fermée.
+If KinetiX is integrated via the `udp_bridge` network daemon, the following contract applies:
 
-### A. Initialisation (`Kinetix_Init`)
-Le noyau nécessite le chargement physique d'une matrice HDC (la **Cassette Binaire**) issue de la Forge. Le pointeur de la SRAM et le pointeur de la Cassette (5 Ko) doivent être fournis.
+- **Listening Port (Default):** UDP `8080`
+- **Payload Contract:** Incoming frames MUST respect a strict memory alignment of **20 bytes** (no network padding is tolerated). 
+- **Binary Structure** (Little-Endian):
+  1. `uint32_t` (4 bytes): Timestamp in milliseconds.
+  2. `float` IEEE 754 (4 bytes): Infrared Intensity (IR) / Market Imbalance.
+  3. `float` IEEE 754 (4 bytes): Radar Cross Section (RCS) / Micro Volatility.
+  4. `float` IEEE 754 (4 bytes): AI Order - Pitch / Price.
+  5. `float` IEEE 754 (4 bytes): AI Order - Yaw / Volume.
 
-### B. Boucle de Contrôle (`Kinetix_Step`)
-À chaque cycle d'horloge de l'avionique (ex: 1000 Hz), l'état renvoyé sera soit `NOMINAL`, soit `VETO_LATCHED`.
-
-### C. Définition du "Latching"
-Si la distance topologique HDC dépasse le seuil de rupture (détection d'une anomalie physique ou d'un leurre), le noyau renvoie `KINETIX_STATE_VETO_LATCHED`. 
-**ATTENTION :** Ce déclenchement est définitif (*Latching* matériel simulé). L'IA est considérée comme corrompue ou leurrée. Le noyau ne traitera plus de nouvelles données et renverra le VETO en $O(1)$ jusqu'à un *hard reset* de la plateforme.
+*(Any frame whose size differs from `sizeof(Kinetix_Telemetry_t)` will be silently dropped).*
 
 ---
 
-## 4. Procédure de la Forge (Flux de Données)
+## 3. Lifecycle and State Machine
 
-Pour opérer, le Disjoncteur KinetiX exige une matrice d'alignement nominale spécifique à la plateforme ciblée (la Cassette). L'intégrateur doit procéder comme suit :
+The core operates as a closed state machine.
 
-1. **Acquisition** : Exécuter un vol simulé ou réel en conditions certifiées saines.
-2. **Extraction** : Exporter la télémétrie de ce vol nominal dans un fichier `.csv` pur.
-3. **Transmission** : Envoyer le fichier `.csv` à l'équipe Xenisos.
-4. **Forge** : Xenisos génère la *Cassette Binaire* chiffrée de 5 Ko et la fournit sous licence.
-5. **Déploiement** : Flasher la Cassette binaire dans la mémoire du calculateur pour lier le disjoncteur à son appareil.
+### A. Initialization (`Kinetix_Init`)
+The core requires the physical loading of an HDC matrix (the **Binary Cassette**) generated by the Xenisos Forge. The SRAM pointer and the Cassette pointer (5056 bytes) must be provided.
+
+### B. Control Loop (`Kinetix_Veto_Check`)
+At each control cycle (e.g., 1000 Hz or per network frame), the returned state will be either `0` (NOMINAL) or `1` (VETO_LATCHED).
+
+### C. Definition of "Latching"
+If the topological HDC distance exceeds the threshold (detecting a physical anomaly, spoofing, or market crash), the core returns `1` (VETO_LATCHED).
+**WARNING:** This trigger is definitive (simulated hardware latching). The AI controller is considered compromised. The core will cease processing new inputs and will permanently return the VETO flag in $O(1)$ time until a platform hard reset is performed.
+
+---
+
+## 4. Forge Procedure (Data Pipeline)
+
+To operate, the KinetiX Circuit Breaker requires a platform-specific nominal alignment matrix (the Cassette). The integrator must proceed as follows:
+
+1. **Acquisition:** Run a simulated or real flight/trading session under certified nominal conditions.
+2. **Extraction:** Export this nominal session telemetry into a raw `.csv` file.
+3. **Transmission:** Send the `.csv` file to the Xenisos team.
+4. **Forge:** Xenisos generates the encrypted 5056-byte *Binary Cassette* and delivers it under license.
+5. **Deployment:** Flash the binary Cassette into the memory of the onboard calculator/HFT proxy to bind the circuit breaker to its operational environment.
