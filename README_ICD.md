@@ -11,7 +11,7 @@ This document specifies the formal interface contract of the KinetiX geometric c
 
 ### Memory Footprint (RAM)
 - **Zero Dynamic Allocation:** The KinetiX core guarantees the total absence of heap memory allocations (`malloc`, `free`, `calloc`).
-- **SRAM Static Requirement:** The host system MUST pre-allocate a contiguous memory region and pass its pointer during initialization. The required size is approximately **55 MB** (for the context buffer and hyperdimensional projection operations).
+- **Static Memory Allocation (DRAM/L3):** The host system MUST pre-allocate a contiguous memory region and pass its pointer during initialization. The required size is approximately **55 MB** (for the context buffer and hyperdimensional projection operations).
 
 ### Execution Time and Complexity
 - **O(1) Determinism:** The evaluation function (`Kinetix_Step` / `Kinetix_Veto_Check`) executes in strictly constant time.
@@ -24,8 +24,8 @@ This document specifies the formal interface contract of the KinetiX geometric c
 If KinetiX is integrated via the `udp_bridge` network daemon, the following contract applies:
 
 - **Listening Port (Default):** UDP `8080`
-- **Payload Contract:** Incoming frames MUST respect a strict memory alignment of **20 bytes** (no network padding is tolerated). 
-- **Binary Structure** (Little-Endian):
+- **Payload Contract:** Incoming frames MUST respect a strict memory alignment of **20 bytes** (no network padding is tolerated). Integrators MUST compile their telemetry structures using `#pragma pack(1)` or `__attribute__((packed))` to prevent compiler-induced padding.
+- **Binary Structure** (Little-Endian) :
   1. `uint32_t` (4 bytes): Timestamp in milliseconds.
   2. `float` IEEE 754 (4 bytes): Infrared Intensity (IR) / Market Imbalance.
   3. `float` IEEE 754 (4 bytes): Radar Cross Section (RCS) / Micro Volatility.
