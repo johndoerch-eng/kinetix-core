@@ -31,7 +31,7 @@ KinetiX does not predict the market. It continuously monitors the **Topological 
 
 ### 🔬 EXTREME COMPUTE PROFILING (THE NANOSECOND PROOF)
 
-Our pure C core (`libkinetix.so` / `kinetix_core.dll`) is relentlessly optimized for Bare-Metal environments. We do not use generic floating-point comparisons. The geometric drift calculation relies entirely on a **Superscalar Block Shift & Hardware Popcount** loop, forcing the calculation to stay within the CPU's General Purpose Registers (GPR). By eliminating loop-carried dependencies, the architecture saturates 4 ALUs concurrently.
+Our pure C core (`libkinetix.so` / `kinetix_core.dll`) is relentlessly optimized for Bare-Metal environments. We do not use generic floating-point comparisons. The geometric drift calculation relies entirely on a **Superscalar Block Shift & Hardware Popcount** loop, forcing the calculation to stay within the CPU's General Purpose Registers (GPR). By eliminating loop-carried dependencies, the architecture saturates 4 ALUs concurrently. The execution path is intentionally primitive (XOR + Popcount). The mathematical complexity is entirely front-loaded in the Xenisos projection matrix, keeping the critical path strictly $O(1)$ and free of branch penalties.
 
 Disassembly of the critical path (`Kinetix_Veto_Check`) proves the total absence of memory store instructions (`MOV` to RAM) and loop-carried data stalls during the geometric evaluation:
 
@@ -56,14 +56,14 @@ Disassembly of the critical path (`Kinetix_Veto_Check`) proves the total absence
 > **Compute Latency Guarantee:** 1201 CPU cycles maximum (WCET) on standard Zen 2/3 architectures using Superscalar Unrolling. For a 40,000-dimensional topological lattice, that equates to **1.92 CPU cycles per 64-bit block**.
 > Under standard Windows Desktop environments (MSVC), the superscalar execution pipeline reliably scores **~1201 CPU cycles (285ns)**, maintaining sub-microsecond latency even with OS scheduler interruptions.
 > 
-> We do not manage your network latency (NIC) or your PCIe bus. However, once the UDP market frame enters our core, the order is either validated or punished in **~285 nanoseconds**. Zero jitter. Zero system calls.
+> **Jitter Mitigation:** The 285ns benchmark is raw CPU execution time. Production HFT deployments strictly require Linux Kernel-Bypass (e.g., Solarflare OpenOnload / EF_VI) and core isolation (`isolcpus`/`nohz_full`) to mitigate OS-level scheduling jitter. Once the UDP market frame enters our core, the order is either validated or vetoed in **~285 nanoseconds**. Zero system calls in the critical path.
 
 ---
 
 ### ⚙️ ZERO-OVERHEAD INTEGRATION & BACKTESTING
 
 * **Client-Managed Memory Allocation (Bring Your Own Buffer):** You allocate a static 1KB array. We cast our context directly onto your allocation space. Zero system calls, absolute memory safety.
-* **Frictionless Backtesting (Zero False Positives):** Integrate our `.dll` or `.so` directly into your Simulated Matching Engine. Replay the last 10 years of Tick Data and see for yourself: KinetiX mathematically guarantees a **zero percent False Positive rate** on your nominal strategies. It only triggers on catastrophic structural decoupling.
+* **Frictionless Backtesting (Topological Isolation):** Integrate our `.dll` or `.so` directly into your Simulated Matching Engine. Replay the last 10 years of Tick Data and see for yourself: KinetiX ensures a statistically negligible False Positive rate by operating at a $20\sigma$ threshold in high-dimensional space, effectively eliminating stochastic triggers on nominal strategies. It only triggers on catastrophic structural decoupling.
 
 ---
 
