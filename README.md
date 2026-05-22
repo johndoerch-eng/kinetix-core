@@ -1,5 +1,7 @@
 # XENISOS KINETIX: THE DETERMINISTIC HFT INTERLOCK
 
+[![Wiki Documentation](https://img.shields.io/badge/Documentation-Wiki-blue.svg)](https://github.com/johndoerch-eng/kinetix-core/wiki)
+
 | Metric | Spec |
 | :--- | :--- |
 | **Algorithmic Compute Latency** | **285ns** (Windows/MSVC Superscalar: 1201 cycles) |
