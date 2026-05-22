@@ -11,6 +11,8 @@
 !generate_dummy_cassette.py
 !kinetix_core.c
 !kinetix_core.h
+!research/
+!research/kinetix_empirical_proof.py
 
 # Allow the data folder but only the dummy payload inside
 !data/
